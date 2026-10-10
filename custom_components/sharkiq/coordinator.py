@@ -81,11 +81,13 @@ class SharkIqUpdateCoordinator(DataUpdateCoordinator[bool]):
                 await self.ayla_api.async_refresh_auth()
 
             all_vacuums = await self.ayla_api.async_list_devices()
-            self._online_dsns = {
-                v["dsn"]
-                for v in all_vacuums
-                if v["connection_status"] == "Online" and v["dsn"] in self.shark_vacs
-            }
+            # Shark's cloud API does not reliably report `connection_status`
+            # as "Online" for vacuums that are in fact reachable and returning
+            # fresh data. Gating availability on it leaves the entity
+            # permanently "unavailable" even though updates succeed, so treat
+            # every device known to the account as reachable and let the
+            # per-device update decide.
+            self._online_dsns = {v["dsn"] for v in all_vacuums if v["dsn"] in self.shark_vacs}
 
             LOGGER.debug("Updating sharkiq data")
             online_vacs = (self.shark_vacs[dsn] for dsn in self.online_dsns)
